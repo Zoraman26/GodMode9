@@ -313,7 +313,7 @@ u32 LoadTicketForTitleId(Ticket** ticket, const u64 title_id) {
     // path to ticket.db
     char path_ticketdb[32];
     char drv = *path_store;
-    snprintf(path_ticketdb, 32, "%2.2s/dbs/ticket.db",
+    snprintf(path_ticketdb, sizeof(path_ticketdb), "%2.2s/dbs/ticket.db",
         ((drv == 'B') || (drv == '5') || (drv == '4')) ? "4:" : "1:");
 
     // load ticket
@@ -744,7 +744,7 @@ u32 VerifyNcsdFile(const char* path) {
         if (!size) continue;
         if (VerifyNcchFile(path, offset, size) != 0) {
             ShowPrompt(false, "%s\nContent%lu (%08lX@%08lX):\nVerification failed",
-                pathstr, i, size, offset, i);
+                pathstr, i, size, offset);
             return 1;
         }
     }
@@ -789,7 +789,7 @@ u32 VerifyCiaFile(const char* path) {
         if (!(cnt_index[index/8] & (1 << (7-(index%8))))) continue; // don't check missing contents
         if (VerifyTmdContent(path, next_offset, chunk, titlekey) != 0) {
             ShowPrompt(false, "%s\nID %08lX (%08llX@%08llX)\nVerification failed",
-                pathstr, getbe32(chunk->id), getbe64(chunk->size), next_offset, i);
+                pathstr, getbe32(chunk->id), getbe64(chunk->size), next_offset);
             free(cia);
             return 1;
         }
@@ -927,7 +927,7 @@ u32 VerifyFirmFile(const char* path) {
         void* section = ((u8*) firm_buffer) + sct->offset;
         if (!(sct->size)) continue;
         if (sha_cmp(sct->hash, section, sct->size, SHA256_MODE) != 0) {
-            ShowPrompt(false, "%s\nSection %u hash mismatch", pathstr, i);
+            ShowPrompt(false, "%s\nSection %lu hash mismatch", pathstr, i);
             free(firm_buffer);
             return 1;
         }
@@ -1452,12 +1452,12 @@ u32 CryptGameFile(const char* path, bool inplace, bool encrypt) {
 
     if (!inplace) { // build output name
         // build output name
-        snprintf(dest, 256, OUTPUT_PATH "/");
+        snprintf(dest, sizeof(dest), OUTPUT_PATH "/");
         char* dname = dest + strnlen(dest, 256);
         if ((strncmp(path + 1, ":/title/", 8) != 0) || (GetGoodName(dname, path, false) != 0)) {
             char* name = strrchr(path, '/');
             if (!name) return 1;
-            snprintf(dest, 256, "%s/%s", OUTPUT_PATH, ++name);
+            snprintf(dest, sizeof(dest), "%s/%s", OUTPUT_PATH, ++name);
         }
         destptr = dest;
     }
@@ -1555,13 +1555,13 @@ u32 CreateSaveData(const char* drv, u64 tid64, const char* name, u32 save_size, 
         u8 sd_keyy[16] __attribute__((aligned(4)));
         char path_movable[32];
         u32 sha256sum[8];
-        snprintf(path_movable, 32, "%2.2s/private/movable.sed", drv);
+        snprintf(path_movable, sizeof(path_movable), "%2.2s/private/movable.sed", drv);
         if (fvx_qread(path_movable, sd_keyy, 0x110, 0x10, NULL) != FR_OK) return 1;
         memset(sd_keyy, 0x00, 16);
         sha_quick(sha256sum, sd_keyy, 0x10, SHA256_MODE);
         // build path
         u32 tid_low = (u32) (tid64 & 0xFFFFFFFF);
-        snprintf(path_save, 128, "%2.2s/data/%08lx%08lx%08lx%08lx/sysdata/%08lx%s",
+        snprintf(path_save, sizeof(path_save), "%2.2s/data/%08lx%08lx%08lx%08lx/sysdata/%08lx%s",
             drv, sha256sum[0], sha256sum[1], sha256sum[2], sha256sum[3],
             tid_low | 0x00020000, name ? "/00000000" : "");
         return 0;
@@ -1569,7 +1569,7 @@ u32 CreateSaveData(const char* drv, u64 tid64, const char* name, u32 save_size, 
         GetInstallPath(path_save, drv, tid64, NULL, name ? "data/00000001.sav" : "data");
     } else {
         char substr[64];
-        snprintf(substr, 64, "data/%s", name);
+        snprintf(substr, sizeof(substr), "data/%s", name);
         GetInstallPath(path_save, drv, tid64, NULL, substr);
     }
 
@@ -1942,9 +1942,9 @@ u32 InstallCiaSystemData(CiaStub* cia, const char* drv) {
     if (!syscmd) cmd->unknown = 0xFFFFFFFE; // mark this as custom built
 
     // generate all the paths
-    snprintf(path_titledb, 32, "%2.2s/dbs/title.db",
+    snprintf(path_titledb, sizeof(path_titledb), "%2.2s/dbs/title.db",
         (*drv == '2') ? "1:" : *drv == '5' ? "4:" : drv);
-    snprintf(path_ticketdb, 32, "%2.2s/dbs/ticket.db",
+    snprintf(path_ticketdb, sizeof(path_ticketdb), "%2.2s/dbs/ticket.db",
         ((*drv == 'A') || (*drv == '2')) ? "1:" :
         ((*drv == 'B') || (*drv == '5')) ? "4:" : drv);
     GetInstallPath(path_tmd, drv, tid64, NULL, "content/00000000.tmd");
@@ -2778,7 +2778,7 @@ u32 BuildCiaFromGameFile(const char* path, bool force_legit) {
     u32 ret = 0;
 
     // build output name
-    snprintf(dest, 256, OUTPUT_PATH "/");
+    snprintf(dest, sizeof(dest), OUTPUT_PATH "/");
     char* dname = dest + strnlen(dest, 256);
     if (!((filetype & (GAME_TMD|GAME_CDNTMD|GAME_TWLTMD|GAME_TIE)) ||
         (strncmp(path + 1, ":/title/", 8) == 0)) ||
@@ -2787,8 +2787,8 @@ u32 BuildCiaFromGameFile(const char* path, bool force_legit) {
         if (!title_id) {
             char* name = strrchr(path, '/');
             if (!name) return 1;
-            snprintf(dest, 256, "%s/%s", OUTPUT_PATH, ++name);
-        } else snprintf(dest, 256, "%s/%016llX", OUTPUT_PATH, title_id);
+            snprintf(dest, sizeof(dest), "%s/%s", OUTPUT_PATH, ++name);
+        } else snprintf(dest, sizeof(dest), "%s/%016llX", OUTPUT_PATH, title_id);
     }
     // replace extension
     char* dot = strrchr(dest, '.');
@@ -3048,10 +3048,10 @@ u32 DumpTicketForGameFile(const char* path, bool force_legit) {
     
     // build output name
     char dest[256];
-    snprintf(dest, 256, OUTPUT_PATH "/");
+    snprintf(dest, sizeof(dest), OUTPUT_PATH "/");
     char* dname = dest + strnlen(dest, 256);
     if (GetGoodName(dname, path, false) != 0)
-        snprintf(dest, 256, "%s/%016llX", OUTPUT_PATH, tid64);
+        snprintf(dest, sizeof(dest), "%s/%016llX", OUTPUT_PATH, tid64);
 
     // replace extension
     char* dot = strrchr(dest, '.');
@@ -3075,7 +3075,7 @@ u32 DumpCxiSrlFromTmdFile(const char* path) {
     char dest[256];
 
     // prepare output name
-    snprintf(dest, 256, OUTPUT_PATH "/");
+    snprintf(dest, sizeof(dest), OUTPUT_PATH "/");
     char* dname = dest + strnlen(dest, 256);
     if (!CheckWritePermissions(dest)) return 1;
 
@@ -3188,7 +3188,7 @@ u32 ExtractCodeFromCxiFile(const char* path, const char* path_out, char* extstr)
         else if (ValidateAgbHeader((AgbHeader*)(void*) code) == 0) ext = ".gba";
     }
     if (extstr) strncpy(extstr, ext, 7);
-    if (!path_out) snprintf(dest, 256, OUTPUT_PATH "/%016llX%s%s", ncch.programId, (exthdr.flag & 0x1) ? ".dec" : "", ext);
+    if (!path_out) snprintf(dest, sizeof(dest), OUTPUT_PATH "/%016llX%s%s", ncch.programId, (exthdr.flag & 0x1) ? ".dec" : "", ext);
 
     // write output file
     fvx_unlink(dest);
@@ -3294,7 +3294,8 @@ u64 GetGameFileTrimmedSize(const char* path) {
             return 0;
         if (hdr.unit_code != 0x00) // DSi or NDS+DSi
             trimsize = hdr.ntr_twl_rom_size;
-        else trimsize = hdr.ntr_rom_size + 0x88; // regular NDS
+        else if (hdr.ntr_rom_size) // regular NDS
+            trimsize = hdr.ntr_rom_size + 0x88;
     } else {
         u8 hdr[0x200];
         if (fvx_qread(path, &hdr, 0, 0x200, NULL) != FR_OK)
@@ -3559,15 +3560,15 @@ u32 ShowGameCheckerInfo(const char* path) {
     char typestr[32];
     if ((!state_ticket && (type&(GAME_CIA|GAME_TIE))) || !state_tmd || missing_first ||
         (!is_dlc && (content_found != content_count)))
-        snprintf(typestr, 32, "Possibly Broken");
-    else snprintf(typestr, 32, "%s %s%s",
+        snprintf(typestr, sizeof(typestr), "Possibly Broken");
+    else snprintf(typestr, sizeof(typestr), "%s %s%s",
         console_id ? "Personal" : "Universal",
         ((state_ticket == 2) && (state_tmd == 2)) ? "Legit" :
          (state_tmd == 2) ? "Pirate Legit" : "Custom",
         is_dlc ? " DLC" : "");
 
     char srcstr[5];
-    snprintf(srcstr, 5, "%s",
+    snprintf(srcstr, sizeof(srcstr), "%s",
         (type & GAME_TIE) ? (tmd ? (sd_title ? "SD" : "NAND") : "UNK") :
         (type & GAME_CIA) ? "CIA" :
         (type & GAME_TMD) ? "TMD" :
@@ -3575,11 +3576,11 @@ u32 ShowGameCheckerInfo(const char* path) {
         (type & GAME_TWLTMD) ? "TWL" : "UNK");
 
     char contents_str[64];
-    if (type & GAME_CIA) snprintf(contents_str, 64, "Contents in CIA: %lu/%lu", content_found, content_count);
+    if (type & GAME_CIA) snprintf(contents_str, sizeof(contents_str), "Contents in CIA: %lu/%lu", content_found, content_count);
     else snprintf(contents_str, 64, "Contents in TMD: %lu", content_count);
 
     char conid_str[32] = { '\0' };
-    if (type & (GAME_CIA|GAME_TIE)) snprintf(conid_str, 64, "Console ID: %08lX\n", console_id);
+    if (type & (GAME_CIA|GAME_TIE)) snprintf(conid_str, sizeof(conid_str), "Console ID: %08lX\n", console_id);
 
 
     // output results
@@ -3588,7 +3589,7 @@ u32 ShowGameCheckerInfo(const char* path) {
         if (!ShowPrompt(state_verify < 0,
                 "%s\n%s %s Title\n \n"
                 "Title ID: %016llX\n"
-                "Title version: %u.%u.%u\n"
+                "Title version: %lu.%lu.%lu\n"
                 "Contents size: %s\n"
                 "%s\n%s \n"
                 "Ticket/TMD: %s/%s\n"
@@ -3644,7 +3645,7 @@ u32 BuildNcchInfoXorpads(const char* destdir, const char* path) {
         if (ret != 0) break;
 
         char dest[256]; // 256 is the maximum length of a full path
-        snprintf(dest, 256, "%s/%s", destdir, entry.filename);
+        snprintf(dest, sizeof(dest), "%s/%s", destdir, entry.filename);
         if (fvx_open(&fp_xorpad, dest, FA_WRITE | FA_CREATE_ALWAYS) == FR_OK) {
             if (!ShowProgress(0, 0, entry.filename)) ret = 1;
             for (u64 p = 0; (p < entry.size_b) && (ret == 0); p += STD_BUFFER_SIZE) {
@@ -3674,7 +3675,7 @@ u32 GetHealthAndSafetyPaths(const char* drv, char* path_cxi, char* path_bak) {
         u8 secinfo[0x111];
         u32 region = 0xFF;
         UINT br;
-        snprintf(path_secinfo, 32, "%s/rw/sys/SecureInfo_%c", drv, secchar);
+        snprintf(path_secinfo, sizeof(path_secinfo), "%s/rw/sys/SecureInfo_%c", drv, secchar);
         if ((fvx_qread(path_secinfo, secinfo, 0, 0x111, &br) != FR_OK) ||
             (br != 0x111))
             continue;
@@ -3693,7 +3694,7 @@ u32 GetHealthAndSafetyPaths(const char* drv, char* path_cxi, char* path_bak) {
     TmdContentChunk* chunk = (TmdContentChunk*) (tmd + 1);
     for (u32 i = 0; i < 8; i++) { // 8 is an arbitrary number
         char path_tmd[64];
-        snprintf(path_tmd, 64, "%s/title/00040010/%08lx/content/%08lx.tmd", drv, tidlow_hs, i);
+        snprintf(path_tmd, sizeof(path_tmd), "%s/title/00040010/%08lx/content/%08lx.tmd", drv, tidlow_hs, i);
         if (LoadTmdFile(tmd, path_tmd) != 0) continue;
         if (!getbe16(tmd->content_count)) break;
         if (path_cxi) snprintf(path_cxi, 64, "%s/title/00040010/%08lx/content/%08lx.app", drv, tidlow_hs, getbe32(chunk->id));
@@ -3721,7 +3722,7 @@ u32 InjectHealthAndSafety(const char* path, const char* destdrv) {
 
     // legacy stuff - remove mark file
     char path_mrk[32] = { 0 };
-    snprintf(path_mrk, 32, "%s/%s", destdrv, "__gm9_hsbak.pth");
+    snprintf(path_mrk, sizeof(path_mrk), "%s/%s", destdrv, "__gm9_hsbak.pth");
     f_unlink(path_mrk);
 
     // get H&S paths
@@ -4057,7 +4058,7 @@ u32 GetGoodName(char* name, const char* path, bool quick) {
     if (!quick && (type_donor & (GAME_CIA|GAME_TIE|GAME_TMD|GAME_CDNTMD|GAME_TWLTMD))) {
         u32 version = GetGameFileTitleVersion(path);
         if (version < 0x10000)
-            snprintf(version_str, 16, " (v%lu.%lu.%lu)",
+            snprintf(version_str, sizeof(version_str), " (v%lu.%lu.%lu)",
                 (version>>10)&0x3F, (version>>4)&0x3F, version&0xF);
     }
 
@@ -4116,15 +4117,15 @@ u32 GetGoodName(char* name, const char* path, bool quick) {
 
             if (twl->unit_code & 0x02) { // TWL
                 char region[8] = { 0 };
-                if (twl->region_flags == TWL_REGION_FREE) snprintf(region, 8, "W");
-                snprintf(region, 8, "%s%s%s%s%s",
+                if (twl->region_flags == TWL_REGION_FREE) snprintf(region, sizeof(region), "W");
+                snprintf(region, sizeof(region), "%s%s%s%s%s",
                     (twl->region_flags & REGION_MASK_JPN) ? "J" : "",
                     (twl->region_flags & REGION_MASK_USA) ? "U" : "",
                     (twl->region_flags & REGION_MASK_EUR) ? "E" : "",
                     (twl->region_flags & REGION_MASK_CHN) ? "C" : "",
                     (twl->region_flags & REGION_MASK_KOR) ? "K" : "");
-                if (strncmp(region, "JUECK", 8) == 0) snprintf(region, 8, "W");
-                if (!*region) snprintf(region, 8, "UNK");
+                if (strncmp(region, "JUECK", 8) == 0) snprintf(region, sizeof(region), "W");
+                if (!*region) snprintf(region, sizeof(region), "UNK");
 
                 char* unit_str = (twl->unit_code == TWL_UNITCODE_TWLNTR) ? "DSi Enhanced" : "DSi Exclusive";
                 snprintf(name, 128, "%016llX%s %s (TWL-%.4s) (%s) (%s)%s.%s",
@@ -4142,16 +4143,16 @@ u32 GetGoodName(char* name, const char* path, bool quick) {
             if (GetSmdhDescShort(title_name, smdh) != 0) return 1;
 
             char region[8] = { 0 };
-            if (smdh->region_lockout == SMDH_REGION_FREE) snprintf(region, 8, "W");
-            else snprintf(region, 8, "%s%s%s%s%s%s",
+            if (smdh->region_lockout == SMDH_REGION_FREE) snprintf(region, sizeof(region), "W");
+            else snprintf(region, sizeof(region), "%s%s%s%s%s%s",
                 (smdh->region_lockout & REGION_MASK_JPN) ? "J" : "",
                 (smdh->region_lockout & REGION_MASK_USA) ? "U" : "",
                 (smdh->region_lockout & REGION_MASK_EUR) ? "E" : "",
                 (smdh->region_lockout & REGION_MASK_CHN) ? "C" : "",
                 (smdh->region_lockout & REGION_MASK_KOR) ? "K" : "",
                 (smdh->region_lockout & REGION_MASK_TWN) ? "T" : "");
-            if (strncmp(region, "JUECKT", 8) == 0) snprintf(region, 8, "W");
-            if (!*region) snprintf(region, 8, "UNK");
+            if (strncmp(region, "JUECKT", 8) == 0) snprintf(region, sizeof(region), "W");
+            if (!*region) snprintf(region, sizeof(region), "UNK");
 
             snprintf(name, 128, "%016llX%s %s (%.16s) (%s)%s.%s",
                 ncch->programId, appid_str, title_name, ncch->productcode, region, version_str, ext);
